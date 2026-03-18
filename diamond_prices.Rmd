@@ -1,0 +1,99 @@
+---
+title: "Diamond Prices Analysis"
+author: "TJ Cook"
+date: "`3/16/26"
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_float: true
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+library(ggplot2)
+library(dplyr)
+library(knitr)
+```
+
+---
+
+# Diamond Prices
+
+This analysis explores the relationship between diamond weight (carat) and price using the `ggplot2::diamonds` dataset.
+
+## Question 1 — Filter & Count Table
+
+We retain only diamonds whose c**olor** is D (best), G (middle-grade), or J (worst), and whose **clarity** is IF (best), VS1 (middle-grade), or I1 (worst).
+
+```{r q1-filter}
+diamonds_sub <- diamonds %>% filter(color %in% c("D", "G", "J"), clarity %in% c("I1", "VS1", "IF")) %>% mutate(color   = droplevels(color), clarity = droplevels(clarity))
+```
+
+```{r q1-table}
+diamonds_sub %>% count(color, clarity) %>% tidyr::pivot_wider(names_from = clarity, values_from = n, values_fill = 0) %>% kable()
+```
+
+The filtered dataset contains `r nrow(diamonds_sub)` diamonds spread across
+nine color–clarity combinations. IF diamonds are considerably rarer than VS1 or
+I1 diamonds across all three color grades. [Question 1 complete]
+
+## Question 2 — Price vs. Carat (Overall)
+
+```{r q2-scatter, fig.width=7, fig.height=5}
+ggplot(diamonds_sub, aes(x = carat, y = price)) + geom_point(alpha = 0.5) + geom_smooth(method = "lm", se = FALSE, color = "steelblue", linewidth = 1) + theme_minimal()
+```
+
+There is a clear **positive relationship** between carat weight and price —
+heavier diamonds are substantially more expensive. [Question 2 complete]
+
+## Question 3 — Price vs. Carat by Color
+
+```{r q3-color, fig.width=7, fig.height=5}
+ggplot(diamonds_sub, aes(x = carat, y = price, color = color)) + geom_point(alpha = 0.5) + geom_smooth(method = "lm", se = FALSE, linewidth = 1) + scale_color_brewer(palette = "Dark2", name    = "Color\n(D = best, J = worst)") + theme_minimal()
+```
+
+All three color grades show the same positive price–carat trend, but there are differences. **D-color** (best) diamonds trend line sits highest. **G-color** diamonds fall in the middle, and **J-color** (worst) diamonds fetch the lowest prices per carat. [Question 3 complete]
+
+## Question 4 — Price vs. Carat by Color & Clarity
+
+```{r q4-color-clarity, fig.width=8, fig.height=5}
+ggplot(diamonds_sub, aes(x = carat, y = price, color    = color, shape    = clarity, linetype = clarity)) + geom_point(alpha = 0.5) + geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) + scale_color_brewer(palette = "Dark2", name    = "Color\n(D = best, J = worst)") + theme_minimal()
+```
+
+Mapping clarity to both point shape and line type results in a **difficult-to-read** plot. [Question 4 complete]
+
+## Question 5 — Faceted Grid: Color × Clarity
+
+```{r q5-facet, fig.width=9, fig.height=7}
+ggplot(diamonds_sub, aes(x = carat, y = price)) + geom_point(alpha = 0.4, size = 0.8) + geom_smooth(method = "lm", se = FALSE, color = "steelblue", linewidth = 0.9) + facet_grid(color ~ clarity, labeller = labeller(color = c(D = "Color D (best)", G = "Color G (mid)", J = "Color J (worst)"), clarity = c(I1  = "Clarity I1 (worst)", VS1 = "Clarity VS1 (mid)", IF  = "Clarity IF (best)")))  + theme_minimal(base_size = 10) + theme(strip.text = element_text(face = "bold"))
+```
+
+All panels show a positive price–carat relationship. The **D–IF** combination (top-right panel) has the steepest slope and the fewest data points. Conversely, **J–I1** (bottom-left) has the shallowest slope. In general, moving toward better color *and* better clarity steepens the price-per-carat. [Question 5 complete]
+
+## Question 6 — Average Price per Carat by Color & Clarity
+
+```{r q6-ratio}
+diamonds_ppc <- diamonds_sub %>% mutate(price_per_carat = price / carat)
+
+ppc_summary <- diamonds_ppc %>% group_by(color, clarity) %>% summarize(avg_price_per_carat = round(mean(price_per_carat), 2), n = n(), .groups = "drop") %>% arrange(desc(avg_price_per_carat))
+
+kable(ppc_summary, col.names = c("Color", "Clarity", "Avg Price per Carat (USD)", "N"))
+```
+
+The table largely agrees with the visual impressions from Questions 3 and 5.
+**D–IF** (best color, best clarity) tops the ranking with the highest average
+price per carat, confirming what the facet plot suggested. J–I1 (worst color,
+worst clarity) sits near the bottom. One noteworthy quirk: within a given color
+grade, IF clarity does not always rank above VS1 in price-per-carat — this can
+happen because the IF cells have very few observations and may skew toward
+smaller stones that don't yet command their full premium. Overall, the numeric
+ranking is consistent with the graphical story: better quality diamonds fetch
+more per carat.^[Question 6 complete]
+```
